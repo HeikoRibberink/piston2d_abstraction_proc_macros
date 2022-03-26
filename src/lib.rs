@@ -47,7 +47,7 @@ pub fn derive_input_consumer(input: TokenStream) -> TokenStream {
 	let iter = subtypes.iter();
 
 	let expanded = quote! {
-		impl InputConsumer for RenderableTest {}
+		impl InputConsumer for #name {}
 		use input::*;
 		#(impl #iter for #name {fn accepts(&self) -> bool {false}})*
 	};
