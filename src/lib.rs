@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use proc_macro::TokenStream;
-use quote::{quote, format_ident};
+use quote::{format_ident, quote};
 use syn::parse::Parse;
 use syn::{parse_macro_input, Ident, Token};
 
@@ -11,29 +11,36 @@ struct InputConsumerMacro {
 }
 
 impl Parse for InputConsumerMacro {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+	fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
 		let mut types: Vec<Ident> = Vec::new();
 		let name: Ident = input.parse()?;
 		input.parse::<Token![;]>()?;
 		while !input.is_empty() {
 			let ty: Ident = input.parse()?;
 			types.push(ty);
-			if !input.is_empty() {input.parse::<Token![,]>()?;}
+			if !input.is_empty() {
+				input.parse::<Token![,]>()?;
+			}
 		}
-		Ok(InputConsumerMacro {
-			name,
-			types,
-		})
-    }
+		Ok(InputConsumerMacro { name, types })
+	}
 }
 
 #[proc_macro]
 pub fn derive_input_consumer(input: TokenStream) -> TokenStream {
-	let mut subtypes_str: HashSet<&str> = HashSet::from(["AnyButtonConsumer", "ButtonConsumer", "HotkeyConsumer", "CursorPositionConsumer", "CursorMotionConsumer", "ScrollConsumer", "ResizeConsumer", "FocusConsumer", "CursorInWindowConsumer", "CloseConsumer"]);
-	let InputConsumerMacro {
-		name,
-		types
-	} = parse_macro_input!(input as InputConsumerMacro);
+	let mut subtypes_str: HashSet<&str> = HashSet::from([
+		"AnyButtonConsumer",
+		"ButtonConsumer",
+		"HotkeyConsumer",
+		"CursorPositionConsumer",
+		"CursorMotionConsumer",
+		"ScrollConsumer",
+		"ResizeConsumer",
+		"FocusConsumer",
+		"CursorInWindowConsumer",
+		"CloseConsumer",
+	]);
+	let InputConsumerMacro { name, types } = parse_macro_input!(input as InputConsumerMacro);
 
 	for ty in types {
 		subtypes_str.remove(ty.to_string().as_str());
@@ -47,10 +54,15 @@ pub fn derive_input_consumer(input: TokenStream) -> TokenStream {
 	let iter = subtypes.iter();
 
 	let expanded = quote! {
-		impl InputConsumer for #name {}
-		use input::*;
-		#(impl #iter for #name {fn accepts(&self) -> bool {false}})*
-	};
+			impl InputConsumer for #name {}
+			impl<'a> From<&'a mut #name> for &'a mut dyn InputConsumer {
+				fn from(val: &'a mut #name) -> Self {
+					val as &'a mut dyn InputConsumer
+				}
+			}
+			use input::*;
+			#(impl #iter for #name {fn accepts(&self) -> bool {false}})*
+		};
 	TokenStream::from(expanded)
 }
 
@@ -68,5 +80,8 @@ pub fn derive_input_consumer(input: TokenStream) -> TokenStream {
 
 #[test]
 fn test() {
-	assert_eq!(syn::parse_str::<Ident>("Hello").unwrap().to_string(), "Hello");
+	assert_eq!(
+		syn::parse_str::<Ident>("Hello").unwrap().to_string(),
+		"Hello"
+	);
 }
